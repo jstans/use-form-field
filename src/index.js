@@ -178,13 +178,13 @@ export const useFormField = (field, controlled = false) => {
     on
   } = useContext(context);
   const value = useRef(get()[field]);
-  const properties = useRef(getProperties()[field] || {});
+  const meta = useRef(getProperties()[field] || {});
   const error = useRef(getErrors()[field]);
   const [, rerender] = useState({});
 
   useEffect(() => {
     value.current = get()[field];
-    properties.current = getProperties()[field] || {};
+    meta.current = getProperties()[field] || {};
     error.current = getErrors()[field];
     rerender({});
   }, [controlled, get, getProperties, getErrors, field]);
@@ -200,9 +200,9 @@ export const useFormField = (field, controlled = false) => {
       on("properties", properties => {
         if (
           properties.hasOwnProperty(field) &&
-          properties.current !== properties[field]
+          meta.current !== properties[field]
         ) {
-          properties.current = properties[field] || {};
+          meta.current = properties[field] || {};
           rerender({});
         }
       }),
@@ -222,7 +222,7 @@ export const useFormField = (field, controlled = false) => {
   return {
     value: value.current || "",
     ref: value,
-    meta: properties.current,
+    meta: meta.current,
     error: error.current,
     set: useCallback(
       val => {
