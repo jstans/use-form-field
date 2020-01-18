@@ -19,12 +19,12 @@ const context = createContext();
  * @param {import("yup").Schema} initialSchema Yup schema
  *
  * @return {{ set: {(values: Object.<string, any>) => void},
- *            setField: {(value: any) => void},
- *            setFieldMeta: {(property: string, value: any) => void},
+ *            setField: {(field: string, value: any, shouldValidate: bool) => Promise<void>},
+ *            setFieldMeta: {(field: string, property: string, value: any) => void},
  *            setErrors: {(errors: Object.<string, any>) => void},
  *            on: {(name: string, callback: (data : any) => void) => void},
  *            setSchema: {(schema: import("yup").Schema) => void},
- *            validate: {() => void},
+ *            validate: {() => Promise<void>},
  *            get: {() => Object.<string, any>},
  *            getErrors: {() => Object.<string, string>},
  *            getProperties: {() => Object.<string, Object.<string, any>>}
@@ -69,6 +69,7 @@ export const createFormStore = (initialValues = {}, initialSchema) => {
       try {
         await schema.validate(values, { abortEarly: false });
         if (errors && Object.keys(errors).length) setErrors({});
+        return {};
       } catch (result) {
         const nextErrors = (result.inner || []).reduce(
           (yupErrors, yupError) => ({
@@ -78,6 +79,7 @@ export const createFormStore = (initialValues = {}, initialSchema) => {
           {}
         );
         if (!shallowEqualObjects(errors, nextErrors)) setErrors(nextErrors);
+        return nextErrors;
       }
     }
   };
@@ -87,11 +89,18 @@ export const createFormStore = (initialValues = {}, initialSchema) => {
     validate();
   };
 
-  const setField = (field, value, shouldValidate = true) => {
+  const setField = async (field, value, shouldValidate = true) => {
     if (values[field] !== value) {
       values[field] = value;
       emit("values", { [field]: value });
-      if (shouldValidate) validate();
+      if (shouldValidate) await validate();
+      if (typeof shouldValidate === "function")
+        shouldValidate({
+          value,
+          error: errors[field],
+          meta: properties[field]
+        });
+      return { value, error: errors[field], meta: properties[field] };
     }
   };
 
@@ -224,12 +233,7 @@ export const useFormField = (field, controlled = false) => {
     ref: value,
     meta: meta.current,
     error: error.current,
-    set: useCallback(
-      val => {
-        setField(field, val);
-      },
-      [field, setField]
-    ),
+    set: useCallback(val => setField(field, val), [field, setField]),
     setMeta: useCallback((prop, val) => setFieldMeta(field, prop, val), [
       field,
       setFieldMeta
