@@ -2,10 +2,12 @@ import {
   useEffect,
   useCallback,
   useState,
+  useMemo,
   useRef,
   useContext,
   createContext,
-  createElement
+  createElement,
+  isValidElement
 } from "react";
 import PropTypes from "prop-types";
 import { shallowEqualObjects } from "shallow-equal";
@@ -144,10 +146,9 @@ export const createFormStore = (initialValues = {}, initialSchema) => {
  */
 export const useForm = () => {
   const { setSchema, get, set, getErrors, validate, on } = useContext(context);
-  const [isValid, setValid] = useState(() => !Object.keys(getErrors()).length);
+  const [isValid, setValid] = useState(!Object.keys(getErrors()).length);
 
   useEffect(() => {
-    validate();
     return on("errors", () => {
       setValid(Object.keys(getErrors()).length === 0);
     });
@@ -241,6 +242,8 @@ export const useFormField = (field, controlled = false) => {
   };
 };
 
+export const FormComponent = ({ children }) => children(useForm());
+
 /**
  * Acts as a context provider for any subsequent useForm and useFormField hooks
  *
@@ -248,22 +251,36 @@ export const useFormField = (field, controlled = false) => {
  * @param {Object.<string, any>} schema yup compatible schema object
  *
  */
-export const FormProvider = ({ children, initialValues, schema }) =>
-  createElement(
+export const FormProvider = ({ children, values, schema }) => {
+  /* eslint-disable react-hooks/exhaustive-deps */
+  const formStore = useMemo(() => createFormStore(values, schema), []);
+
+  useEffect(() => {
+    formStore.set(values);
+  }, [values]);
+
+  useEffect(() => {
+    formStore.setSchema(schema);
+  }, [schema]);
+
+  return createElement(
     context.Provider,
     {
-      value: createFormStore(initialValues, schema)
+      value: formStore
     },
-    children
+    typeof children !== "function" || isValidElement(children)
+      ? children
+      : createElement(FormComponent, { children })
   );
+};
 
 FormProvider.propTypes = {
-  initialValues: PropTypes.object,
+  values: PropTypes.object,
   schema: PropTypes.object,
-  children: PropTypes.element.isRequired
+  children: PropTypes.oneOfType([PropTypes.node, PropTypes.func]).isRequired
 };
 
 FormProvider.defaultProps = {
-  initialValues: {},
+  values: {},
   schema: undefined
 };
