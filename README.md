@@ -20,7 +20,7 @@ useFormField(name, (controlled = false));
 
 `name` - _string_ name to use for the form field.
 
-`controlled` - _boolean_ Whether field is going to be controlled or not. Ultimately this will assume you are using
+`controlled` - _boolean_ _optional_ Whether field is going to be controlled or not. Ultimately this will assume you are using
 the ref as opposed to the value and not trigger a re-render on value changes.
 
 #### Example
@@ -47,8 +47,14 @@ const UncontrolledInput = ({ name }) => {
 ### useForm
 
 ```jsx
-useForm();
+useForm({ withValues = false, onChange });
 ```
+
+#### Options
+
+`withValues` - _boolean_ _optional_ Whether to return complete values object. _This will cause re-renders on change_
+
+`onChange` - _function_ _optional_ Function containing object of changed values.
 
 #### Example
 
@@ -87,11 +93,13 @@ const Form = () => {
 
 #### Options
 
-`initialValues` - _object_ An object containing initial values to set field values to.
+`values` - _object_ _optional_ An object containing values to set field values to.
 
-`schema` - _object_ A yup compatible schema.
+`schema` - _object_ _optional_ A yup compatible schema for automatic validation
 
-#### Example
+`children` - Children can be React elements or a function, if using a function you will receive the return value from useForm() and you may pass additional props to FormProvider that will be used as arguments for useForm().
+
+#### Example (JSX)
 
 ```jsx
 import { FormProvider } from "use-form-field";
@@ -99,6 +107,23 @@ import { FormProvider } from "use-form-field";
 const App = () => (
   <FormProvider>
     <Form />
+  </FormProvider>
+);
+```
+
+#### Example (Function)
+
+```jsx
+import { FormProvider } from "use-form-field";
+
+const App = () => (
+  <FormProvider withValues>
+    {({ values, isValid }) => (
+      <React.Fragment>
+        <Form />
+        {[JSON.stringify(values), " ", isValid ? "valid" : "invalid"]}
+      </React.Fragment>
+    )}
   </FormProvider>
 );
 ```
@@ -182,7 +207,7 @@ const Form = () => {
 };
 
 const App = () => (
-  <FormProvider initialValues={initialValues} schema={validationSchema}>
+  <FormProvider values={initialValues} schema={validationSchema}>
     <Form />
   </FormProvider>
 );

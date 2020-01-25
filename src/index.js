@@ -20,16 +20,16 @@ const context = createContext();
  * @param {Object.<string, any>} initialValues Initial form values
  * @param {import("yup").Schema} initialSchema Yup schema
  *
- * @return {{ set: {(values: Object.<string, any>) => void},
- *            setField: {(field: string, value: any, shouldValidate: bool) => Promise<void>},
- *            setFieldMeta: {(field: string, property: string, value: any) => void},
- *            setErrors: {(errors: Object.<string, any>) => void},
- *            on: {(name: string, callback: (data : any) => void) => void},
- *            setSchema: {(schema: import("yup").Schema) => void},
- *            validate: {() => Promise<void>},
- *            get: {() => Object.<string, any>},
- *            getErrors: {() => Object.<string, string>},
- *            getProperties: {() => Object.<string, Object.<string, any>>}
+ * @return {{ set: (values: Object.<string, any>) => void,
+ *            setField: (field: string, value: any, shouldValidate: bool) => Promise<void>,
+ *            setFieldMeta: (field: string, property: string, value: any) => void,
+ *            setErrors: (errors: Object.<string, any>) => void,
+ *            on: (name: string, callback: (data : any) => void) => void,
+ *            setSchema: (schema: import("yup").Schema) => void,
+ *            validate: () => Promise<void>,
+ *            get: () => Object.<string, any>,
+ *            getErrors: () => Object.<string, string>,
+ *            getProperties: () => Object.<string, Object.<string, any>>
  *         }}
  */
 export const createFormStore = (initialValues = {}, initialSchema) => {
@@ -137,28 +137,48 @@ export const createFormStore = (initialValues = {}, initialSchema) => {
 /**
  * Custom hook to retrieve and set form level data
  *
- * @returns {{ setSchema: {(schema: any) => void},
- *             get: {() => Object.<string, any>},
- *             set: {(fields: Object.<string, any>) => void},
+ * @param {{ onChange: (values: Object.<string, any>) => void,
+ *           withValues: boolean
+ *        }}
+ *
+ * @returns {{ setSchema: (schema: any) => void,
+ *             get: () => Object.<string, any>,
+ *             set: (fields: Object.<string, any>) => void,
  *             isValid: boolean
  *          }}
  *
  */
-export const useForm = () => {
+export const useForm = ({ withValues, onChange } = {}) => {
   const { setSchema, get, set, getErrors, validate, on } = useContext(context);
   const [isValid, setValid] = useState(!Object.keys(getErrors()).length);
+  const [values, setValues] = useState(withValues ? {} : undefined);
 
-  useEffect(() => {
-    return on("errors", () => {
-      setValid(Object.keys(getErrors()).length === 0);
-    });
-  }, [getErrors, on, validate]);
+  useEffect(
+    () =>
+      withValues
+        ? on("values", nextValues =>
+            setValues(values => ({ ...values, ...nextValues }))
+          )
+        : undefined,
+    [on, withValues]
+  );
+
+  useEffect(() => (onChange ? on("values", onChange) : undefined), [
+    on,
+    onChange
+  ]);
+
+  useEffect(
+    () => on("errors", () => setValid(Object.keys(getErrors()).length === 0)),
+    [getErrors, on, validate]
+  );
 
   return {
     get,
     set,
     setSchema,
-    isValid
+    isValid,
+    values
   };
 };
 
@@ -169,12 +189,12 @@ export const useForm = () => {
  * @param {bool} [controlled=true] set to false to not re-render for value change
  *
  * @returns {{ value: any,
- *             getValue: {() => any},
+ *             getValue: () => any,
  *             ref: any,
  *             meta: any,
  *             error: string,
- *             set: {(value: any) => void},
- *             setMeta: {(property: string, value: any) => void}
+ *             set: (value: any) => void,
+ *             setMeta: (property: string, value: any) => void
  *          }}
  *
  */
@@ -242,16 +262,17 @@ export const useFormField = (field, controlled = false) => {
   };
 };
 
-export const FormComponent = ({ children }) => children(useForm());
+const FormComponent = ({ children, ...props }) => children(useForm(props));
 
 /**
  * Acts as a context provider for any subsequent useForm and useFormField hooks
  *
- * @param {Object.<string, any>} initialValues Object containing initial form values
+ * @param {Object.<string, any>} values Object containing form values
  * @param {Object.<string, any>} schema yup compatible schema object
+ * @param {any} children React children or render prop
  *
  */
-export const FormProvider = ({ children, values, schema }) => {
+export const FormProvider = ({ children, values, schema, ...props }) => {
   /* eslint-disable react-hooks/exhaustive-deps */
   const formStore = useMemo(() => createFormStore(values, schema), []);
 
@@ -270,17 +291,19 @@ export const FormProvider = ({ children, values, schema }) => {
     },
     typeof children !== "function" || isValidElement(children)
       ? children
-      : createElement(FormComponent, { children })
+      : createElement(FormComponent, { children, ...props })
   );
 };
 
 FormProvider.propTypes = {
   values: PropTypes.object,
   schema: PropTypes.object,
+  withValues: PropTypes.bool,
   children: PropTypes.oneOfType([PropTypes.node, PropTypes.func]).isRequired
 };
 
 FormProvider.defaultProps = {
   values: {},
-  schema: undefined
+  schema: undefined,
+  withValues: false
 };
