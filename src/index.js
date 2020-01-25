@@ -295,7 +295,7 @@ export const FormProvider = ({ children, values, schema, ...props }) => {
   );
 };
 
-FormProvider.propTypes = {
+FormProvider.propTypes /* remove-proptypes */ = {
   values: PropTypes.object,
   schema: PropTypes.object,
   withValues: PropTypes.bool,

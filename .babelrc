@@ -7,5 +7,12 @@
       }
     ]
   ],
-  "plugins": ["@babel/plugin-transform-runtime"]
+  "plugins": ["@babel/plugin-transform-runtime"],
+  "env": {
+    "production": {
+      "plugins": [
+        ["transform-react-remove-prop-types", { "removeImport": true }]
+      ]
+    }
+  }
 }
